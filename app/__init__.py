@@ -80,6 +80,10 @@ def create_app():
         user = User.query.get(user_id) if user_id else None
         return {"current_user": user}
 
+    @app.get("/favicon.ico")
+    def favicon():
+        return "", 204
+
     @app.get("/api/health")
     def healthcheck():
         return {
