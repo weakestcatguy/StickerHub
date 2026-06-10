@@ -81,6 +81,7 @@ def create_app():
         return {"current_user": user}
 
     @app.get("/favicon.ico")
+    @app.get("/favicon.png")
     def favicon():
         return "", 204
 
