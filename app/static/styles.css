@@ -1,0 +1,300 @@
+:root {
+  --paper: #f7f4ea;
+  --card: #ffffff;
+  --ink: #111111;
+  --yellow: #ffd84d;
+  --teal: #23c7bd;
+  --pink: #ff5aa5;
+  --shadow: 6px 6px 0 var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+  font-weight: 900;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.site-header {
+  border-bottom: 3px solid var(--ink);
+  background: var(--paper);
+}
+
+.nav,
+.hero,
+.toolbar,
+.alerts,
+.sticker-grid,
+.dashboard,
+.form-panel,
+.empty-state {
+  width: min(1180px, calc(100% - 32px));
+  margin-inline: auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.brand {
+  border: 3px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 26px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav-links form {
+  margin: 0;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 10px 14px;
+  color: var(--ink);
+  font-weight: 900;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.button:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.button-yellow {
+  background: var(--yellow);
+}
+
+.button-teal {
+  background: var(--teal);
+}
+
+.button-pink,
+.alert-error {
+  background: var(--pink);
+}
+
+.hero,
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+  border: 3px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  margin-top: 32px;
+  padding: 24px;
+}
+
+.eyebrow,
+.counter {
+  display: inline-block;
+  border: 2px solid var(--ink);
+  background: var(--yellow);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(38px, 6vw, 64px);
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.hero-note {
+  border: 2px solid var(--ink);
+  background: var(--teal);
+  padding: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.alerts {
+  margin-top: 24px;
+}
+
+.alert {
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  margin-bottom: 12px;
+  padding: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.alert-success {
+  background: var(--teal);
+}
+
+.alert-warning {
+  background: var(--yellow);
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 24px;
+  padding: 32px 0;
+}
+
+.dashboard-grid {
+  width: 100%;
+  margin-inline: 0;
+}
+
+.sticker-card,
+.form-panel,
+.empty-state {
+  border: 3px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.sticker-frame {
+  border-bottom: 3px solid var(--ink);
+  background: var(--paper);
+  padding: 12px;
+}
+
+.sticker-frame img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border: 2px solid var(--ink);
+  background: var(--card);
+}
+
+.sticker-body {
+  padding: 16px;
+}
+
+.sticker-body h2,
+.sticker-body h3 {
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.form-panel,
+.empty-state {
+  margin-top: 32px;
+  padding: 24px;
+}
+
+.form-panel {
+  max-width: 640px;
+}
+
+.form-panel.compact {
+  max-width: none;
+}
+
+.form-panel form,
+.edit-form {
+  display: grid;
+  gap: 16px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+input {
+  width: 100%;
+  border: 3px solid var(--ink);
+  background: var(--card);
+  padding: 12px;
+  font-weight: 800;
+}
+
+.dashboard {
+  padding-bottom: 48px;
+}
+
+.dashboard > h2 {
+  margin-top: 36px;
+  text-transform: uppercase;
+}
+
+.full-width {
+  width: 100%;
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .nav,
+  .hero,
+  .dashboard-header,
+  .card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .nav-links {
+    width: 100%;
+  }
+}

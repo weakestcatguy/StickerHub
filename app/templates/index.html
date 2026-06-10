@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Anonymous Public Feed</p>
+      <h1>Discover Loud Stickers</h1>
+    </div>
+    <div class="hero-note">No creator names. No user IDs. Just stickers.</div>
+  </section>
+
+  <section class="toolbar" aria-label="Feed sorting">
+    <a class="button {{ 'button-teal' if sort != 'trending' else '' }}" href="{{ url_for('web.index') }}">Newest</a>
+    <a class="button {{ 'button-teal' if sort == 'trending' else '' }}" href="{{ url_for('web.index', sort='trending') }}">Trending</a>
+  </section>
+
+  {% if stickers %}
+    <section class="sticker-grid" id="feed">
+      {% for sticker in stickers %}
+        <article class="sticker-card">
+          <div class="sticker-frame">
+            <img src="{{ sticker.cloudinary_url }}" alt="{{ sticker.title or 'Sticker' }}">
+          </div>
+          <div class="sticker-body">
+            <h2>{{ sticker.title or "Untitled Sticker" }}</h2>
+            <p>{{ (sticker.tag_list[:2] or ["sticker"])|join(" / ") }}</p>
+            <div class="card-actions">
+              <span class="counter">{{ sticker.download_count }} Downloads</span>
+              <a class="button button-teal" href="{{ url_for('web.download_sticker', sticker_id=sticker.id) }}">Download</a>
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty-state">
+      <h2>No stickers yet</h2>
+      <p>Log in and publish the first one.</p>
+    </section>
+  {% endif %}
+{% endblock %}

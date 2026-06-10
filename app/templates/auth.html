@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Register" if mode == "register" else "Log In" }} - StickerHub{% endblock %}
+
+{% block content %}
+  <section class="form-panel">
+    <h1>{{ "Create Account" if mode == "register" else "Log In" }}</h1>
+    <form method="post">
+      {% if mode == "register" %}
+        <label>
+          Username
+          <input name="username" autocomplete="username" required>
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+      {% else %}
+        <label>
+          Email or Username
+          <input name="identifier" autocomplete="username" required>
+        </label>
+      {% endif %}
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" minlength="8" required>
+      </label>
+      <button class="button button-teal" type="submit">{{ "Create Account" if mode == "register" else "Log In" }}</button>
+    </form>
+    {% if mode == "register" %}
+      <p>Already have an account? <a href="{{ url_for('web.login') }}">Log in</a>.</p>
+    {% else %}
+      <p>Need an account? <a href="{{ url_for('web.register') }}">Join StickerHub</a>.</p>
+    {% endif %}
+  </section>
+{% endblock %}
