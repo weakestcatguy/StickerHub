@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Sticker - StickerHub{% endblock %}
+
+{% block content %}
+  <div class="max-w-lg mx-auto mt-10 bg-white p-8 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-2 text-gray-900">Upload a Sticker</h1>
+    <p class="text-gray-500 text-sm mb-6">PNG or WebP &middot; Max 2MB</p>
+
+    <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data" id="upload-form" class="space-y-4">
+      <div>
+        <label class="block text-gray-700 font-medium mb-1" for="file">Sticker File</label>
+        <input id="file" name="file" type="file" accept=".png,.webp" required
+               class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition">
+        <p id="file-error" class="text-red-600 text-sm mt-1 hidden">File must be 2MB or smaller.</p>
+      </div>
+      <div>
+        <label class="block text-gray-700 font-medium mb-1" for="title">Title</label>
+        <input id="title" name="title" placeholder="BIG MOOD"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent">
+      </div>
+      <div>
+        <label class="block text-gray-700 font-medium mb-1" for="tags">Tags</label>
+        <input id="tags" name="tags" placeholder="reaction, funny, whatsapp"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent">
+      </div>
+      <button type="submit"
+              class="w-full bg-teal-500 text-white py-2 rounded-lg hover:bg-teal-600 transition font-medium">
+        Publish Sticker
+      </button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('upload-form').addEventListener('submit', function (e) {
+      var input = document.getElementById('file');
+      var error = document.getElementById('file-error');
+      if (input.files.length && input.files[0].size > 2 * 1024 * 1024) {
+        e.preventDefault();
+        error.classList.remove('hidden');
+      } else {
+        error.classList.add('hidden');
+      }
+    });
+  </script>
+{% endblock %}

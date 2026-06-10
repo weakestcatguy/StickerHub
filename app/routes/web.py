@@ -1,30 +1,38 @@
 import os
-from functools import wraps
 
 import cloudinary.uploader
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Sticker, User, UserDownload
-from app.routes.stickers import ALLOWED_FORMATS, MAX_FILE_SIZE
+from app.routes.stickers import MAX_FILE_SIZE
+
+ALLOWED_EXTENSIONS = {".png", ".webp"}
+ALLOWED_MIMETYPES = {"image/png", "image/webp"}
 
 web_bp = Blueprint("web", __name__)
 
 
-def login_required(view):
-    @wraps(view)
-    def wrapped_view(*args, **kwargs):
-        if not session.get("user_id"):
-            flash("Please log in first.", "warning")
-            return redirect(url_for("web.login", next=request.path))
-        return view(*args, **kwargs)
+def validate_sticker_file(uploaded_file):
+    if uploaded_file is None or not uploaded_file.filename:
+        return "Sticker file is required."
 
-    return wrapped_view
+    ext = os.path.splitext(uploaded_file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return "Only .png and .webp sticker files are allowed."
 
+    if uploaded_file.mimetype not in ALLOWED_MIMETYPES:
+        return "Only PNG and WebP sticker files are allowed."
 
-def current_user_id():
-    return int(session["user_id"])
+    uploaded_file.seek(0, os.SEEK_END)
+    size = uploaded_file.tell()
+    uploaded_file.seek(0)
+    if size > MAX_FILE_SIZE:
+        return "Sticker files must be 2MB or smaller."
+
+    return None
 
 
 @web_bp.get("/")
@@ -43,7 +51,7 @@ def index():
 @web_bp.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
-        return render_template("auth.html", mode="register")
+        return render_template("register.html")
 
     username = (request.form.get("username") or "").strip()
     email = (request.form.get("email") or "").strip().lower()
@@ -51,17 +59,17 @@ def register():
 
     if not username or not email or len(password) < 8:
         flash("Username, email, and an 8 character password are required.", "error")
-        return render_template("auth.html", mode="register"), 400
+        return render_template("register.html"), 400
 
     if User.query.filter((User.username == username) | (User.email == email)).first():
         flash("Username or email is already in use.", "error")
-        return render_template("auth.html", mode="register"), 409
+        return render_template("register.html"), 409
 
     user = User(username=username, email=email)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    session["user_id"] = user.id
+    login_user(user)
     flash("Welcome to StickerHub.", "success")
     return redirect(url_for("web.dashboard"))
 
@@ -69,7 +77,7 @@ def register():
 @web_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return render_template("auth.html", mode="login")
+        return render_template("login.html")
 
     identifier = (request.form.get("identifier") or "").strip().lower()
     password = request.form.get("password") or ""
@@ -77,16 +85,16 @@ def login():
 
     if not user or not user.check_password(password):
         flash("Invalid credentials.", "error")
-        return render_template("auth.html", mode="login"), 401
+        return render_template("login.html"), 401
 
-    session["user_id"] = user.id
+    login_user(user)
     flash("Logged in.", "success")
     return redirect(request.args.get("next") or url_for("web.dashboard"))
 
 
-@web_bp.post("/logout")
+@web_bp.route("/logout", methods=["GET", "POST"])
 def logout():
-    session.clear()
+    logout_user()
     flash("Logged out.", "success")
     return redirect(url_for("web.index"))
 
@@ -94,36 +102,32 @@ def logout():
 @web_bp.get("/dashboard")
 @login_required
 def dashboard():
-    user_id = current_user_id()
-    uploaded = Sticker.query.filter_by(uploader_id=user_id).order_by(Sticker.created_at.desc()).all()
+    uploaded = Sticker.query.filter_by(uploader_id=current_user.id).order_by(Sticker.created_at.desc()).all()
     downloaded = (
         db.session.query(Sticker)
         .join(UserDownload, UserDownload.sticker_id == Sticker.id)
-        .filter(UserDownload.user_id == user_id)
+        .filter(UserDownload.user_id == current_user.id)
         .order_by(UserDownload.downloaded_at.desc())
         .all()
     )
     return render_template("dashboard.html", uploaded=uploaded, downloaded=downloaded)
 
 
-@web_bp.post("/stickers")
+@web_bp.route("/upload", methods=["GET", "POST"])
 @login_required
-def upload_sticker():
-    uploaded_file = request.files.get("file")
-    if uploaded_file is None or not uploaded_file.filename:
-        flash("Sticker file is required.", "error")
-        return redirect(url_for("web.dashboard"))
+def upload():
+    if request.method == "GET":
+        return render_template("upload.html")
 
-    if uploaded_file.mimetype not in ALLOWED_FORMATS:
-        flash("Only PNG and WebP sticker files are allowed.", "error")
-        return redirect(url_for("web.dashboard"))
+    uploaded_file = request.files.get("file")
+    error = validate_sticker_file(uploaded_file)
+    if error:
+        flash(error, "error")
+        return render_template("upload.html"), 400
 
     uploaded_file.seek(0, os.SEEK_END)
     size = uploaded_file.tell()
     uploaded_file.seek(0)
-    if size > MAX_FILE_SIZE:
-        flash("Sticker files must be 2MB or smaller.", "error")
-        return redirect(url_for("web.dashboard"))
 
     result = cloudinary.uploader.upload(
         uploaded_file,
@@ -141,7 +145,7 @@ def upload_sticker():
         size=size,
         title=(request.form.get("title") or "").strip() or None,
         tags=(request.form.get("tags") or "").strip() or None,
-        uploader_id=current_user_id(),
+        uploader_id=current_user.id,
     )
     db.session.add(sticker)
     db.session.commit()
@@ -153,7 +157,7 @@ def upload_sticker():
 @login_required
 def edit_sticker(sticker_id):
     sticker = Sticker.query.get_or_404(sticker_id)
-    if sticker.uploader_id != current_user_id():
+    if sticker.uploader_id != current_user.id:
         flash("You can edit only stickers you uploaded.", "error")
         return redirect(url_for("web.dashboard"))
 
@@ -170,7 +174,7 @@ def edit_sticker(sticker_id):
 @login_required
 def delete_sticker(sticker_id):
     sticker = Sticker.query.get_or_404(sticker_id)
-    if sticker.uploader_id != current_user_id():
+    if sticker.uploader_id != current_user.id:
         flash("You can delete only stickers you uploaded.", "error")
         return redirect(url_for("web.dashboard"))
 
@@ -184,11 +188,10 @@ def delete_sticker(sticker_id):
 @web_bp.get("/stickers/<int:sticker_id>/download")
 def download_sticker(sticker_id):
     sticker = Sticker.query.get_or_404(sticker_id)
-    user_id = session.get("user_id")
 
     sticker.download_count += 1
-    if user_id:
-        db.session.add(UserDownload(user_id=int(user_id), sticker_id=sticker.id))
+    if current_user.is_authenticated:
+        db.session.add(UserDownload(user_id=current_user.id, sticker_id=sticker.id))
 
     try:
         db.session.commit()

@@ -4,9 +4,10 @@ from pathlib import Path
 
 import cloudinary
 from dotenv import load_dotenv
-from flask import Flask, request, session
+from flask import Flask, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,6 +15,14 @@ from sqlalchemy.exc import SQLAlchemyError
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+login_manager = LoginManager()
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    from app.models import User
+
+    return User.query.get(int(user_id))
 
 
 def resolve_database_url():
@@ -55,6 +64,9 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "web.login"
+    login_manager.login_message_category = "warning"
 
     cloudinary.config(
         cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -63,7 +75,6 @@ def create_app():
         secure=True,
     )
 
-    from app.models import User
     from app.routes.auth import auth_bp
     from app.routes.stickers import stickers_bp
     from app.routes.web import web_bp
@@ -73,12 +84,6 @@ def create_app():
     app.register_blueprint(stickers_bp, url_prefix="/api/stickers")
 
     initialize_database(app)
-
-    @app.context_processor
-    def inject_current_user():
-        user_id = session.get("user_id")
-        user = User.query.get(user_id) if user_id else None
-        return {"current_user": user}
 
     @app.get("/favicon.ico")
     @app.get("/favicon.png")
