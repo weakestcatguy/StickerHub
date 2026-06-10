@@ -18,6 +18,8 @@ The app reads environment variables from `.env`, and creates missing database ta
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stickerhub
 ```
 
+On Vercel, add the same values in Project Settings -> Environment Variables. At minimum set `DATABASE_URL`, `FLASK_SECRET_KEY`, `JWT_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_UPLOAD_PRESET`.
+
 Public feed pages and API responses intentionally omit uploader identity.
 
 ## Cloudinary
