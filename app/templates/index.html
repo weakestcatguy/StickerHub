@@ -18,8 +18,11 @@
     <section class="sticker-grid" id="feed">
       {% for sticker in stickers %}
         <article class="sticker-card">
-          <div class="sticker-frame">
-            <img src="{{ sticker.cloudinary_url }}" alt="{{ sticker.title or 'Sticker' }}">
+          <div class="sticker-frame" style="position:relative;">
+            <img src="{{ sticker.cloudinary_url }}" alt="{{ sticker.title or 'Sticker' }}" loading="lazy">
+            {% if sticker.format == 'gif' %}
+              <span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.05em;">GIF</span>
+            {% endif %}
           </div>
           <div class="sticker-body">
             <h2>{{ sticker.title or "Untitled Sticker" }}</h2>

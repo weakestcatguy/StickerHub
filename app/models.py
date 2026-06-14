@@ -53,6 +53,7 @@ class Sticker(db.Model):
         return {
             "id": self.id,
             "cloudinary_url": self.cloudinary_url,
+            "original_format_url": self.original_format_url,
             "format": self.format,
             "size": self.size,
             "title": self.title,
@@ -71,6 +72,34 @@ class Sticker(db.Model):
         if not self.tags:
             return []
         return [tag.strip() for tag in self.tags.split(",") if tag.strip()]
+
+    @property
+    def original_format_url(self):
+        """Return a Cloudinary URL that forces the stored format and triggers direct attachment download.
+
+        PNG stickers must be served as .png so the transparent background
+        (alpha channel) is preserved for the downloader.  GIF stickers must be
+        served as .gif so all animation frames are preserved.  Cloudinary
+        normally serves whatever format is stored, but making the extension
+        explicit guarantees no automatic WebP conversion happens in delivery.
+        """
+        url = self.cloudinary_url
+        if self.format == "png":
+            import re
+            url = re.sub(r'\.(webp|jpg|jpeg|png)(\?.*)?$', '.png', url)
+            if "/upload/" in url:
+                url = url.replace("/upload/", "/upload/fl_attachment,f_png/")
+            return url
+        if self.format == "gif":
+            import re
+            url = re.sub(r'\.(webp|jpg|jpeg|png|gif)(\?.*)?$', '.gif', url)
+            if "/upload/" in url:
+                url = url.replace("/upload/", "/upload/fl_attachment,f_gif/")
+            return url
+        
+        if "/upload/" in url:
+            url = url.replace("/upload/", "/upload/fl_attachment/")
+        return url
 
 
 class UserDownload(db.Model):

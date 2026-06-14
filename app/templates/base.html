@@ -7,36 +7,33 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
-  <body class="bg-gray-50 min-h-screen">
-    <header class="bg-white shadow-sm">
-      <nav class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a class="text-xl font-bold text-teal-600" href="{{ url_for('web.index') }}">StickerHub</a>
-        <div class="flex items-center gap-4">
-          <a class="text-gray-600 hover:text-gray-900 transition" href="{{ url_for('web.index') }}">Feed</a>
-          <a class="text-gray-600 hover:text-gray-900 transition" href="{{ url_for('web.index', sort='trending') }}">Trending</a>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <a class="brand" href="{{ url_for('web.index') }}">StickerHub</a>
+        <div class="nav-links">
+          <a class="button" href="{{ url_for('web.index') }}">Feed</a>
+          <a class="button" href="{{ url_for('web.index', sort='trending') }}">Trending</a>
           {% if current_user.is_authenticated %}
-            <a class="bg-yellow-400 text-gray-900 px-4 py-1.5 rounded-lg hover:bg-yellow-500 transition font-medium" href="{{ url_for('web.dashboard') }}">Dashboard</a>
-            <a class="bg-teal-500 text-white px-4 py-1.5 rounded-lg hover:bg-teal-600 transition font-medium" href="{{ url_for('web.upload') }}">Upload</a>
-            <form action="{{ url_for('web.logout') }}" method="post" class="inline">
-              <button class="text-gray-600 hover:text-gray-900 transition" type="submit">Log Out</button>
+            <a class="button button-yellow" href="{{ url_for('web.dashboard') }}">Profile</a>
+            <a class="button button-teal" href="{{ url_for('web.upload') }}">Upload</a>
+            <form action="{{ url_for('web.logout') }}" method="post" style="display: inline;">
+              <button class="button button-pink" type="submit">Log Out</button>
             </form>
           {% else %}
-            <a class="bg-yellow-400 text-gray-900 px-4 py-1.5 rounded-lg hover:bg-yellow-500 transition font-medium" href="{{ url_for('web.login') }}">Log In</a>
-            <a class="bg-teal-500 text-white px-4 py-1.5 rounded-lg hover:bg-teal-600 transition font-medium" href="{{ url_for('web.register') }}">Join</a>
+            <a class="button button-yellow" href="{{ url_for('web.login') }}">Log In</a>
+            <a class="button button-teal" href="{{ url_for('web.register') }}">Join</a>
           {% endif %}
         </div>
       </nav>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main style="padding-bottom: 40px;">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-          <div class="space-y-2 mb-4">
+          <div class="alerts">
             {% for category, message in messages %}
-              <div class="px-4 py-2 rounded-lg text-sm font-medium
-                {% if category == 'error' %}bg-red-100 text-red-700
-                {% elif category == 'success' %}bg-green-100 text-green-700
-                {% else %}bg-blue-100 text-blue-700{% endif %}">
+              <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% else %}alert-warning{% endif %}">
                 {{ message }}
               </div>
             {% endfor %}

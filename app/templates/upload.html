@@ -3,43 +3,89 @@
 {% block title %}Upload Sticker - StickerHub{% endblock %}
 
 {% block content %}
-  <div class="max-w-lg mx-auto mt-10 bg-white p-8 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-2 text-gray-900">Upload a Sticker</h1>
-    <p class="text-gray-500 text-sm mb-6">PNG or WebP &middot; Max 2MB</p>
+  <section class="form-panel" style="margin-inline: auto;">
+    <h2>Upload a Sticker</h2>
+    <p style="font-weight: 800; margin-bottom: 24px; text-transform: uppercase; font-size: 14px;">
+      PNG or WebP (max 5 MB) &middot; Animated GIF (max 15 MB)
+    </p>
 
-    <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data" id="upload-form" class="space-y-4">
-      <div>
-        <label class="block text-gray-700 font-medium mb-1" for="file">Sticker File</label>
-        <input id="file" name="file" type="file" accept=".png,.webp" required
-               class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition">
-        <p id="file-error" class="text-red-600 text-sm mt-1 hidden">File must be 2MB or smaller.</p>
-      </div>
-      <div>
-        <label class="block text-gray-700 font-medium mb-1" for="title">Title</label>
-        <input id="title" name="title" placeholder="BIG MOOD"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent">
-      </div>
-      <div>
-        <label class="block text-gray-700 font-medium mb-1" for="tags">Tags</label>
-        <input id="tags" name="tags" placeholder="reaction, funny, whatsapp"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent">
-      </div>
-      <button type="submit"
-              class="w-full bg-teal-500 text-white py-2 rounded-lg hover:bg-teal-600 transition font-medium">
+    <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+      <label>
+        Sticker File
+        <input id="file" name="file" type="file" accept=".png,.webp,.gif" required
+               style="border: 3px solid var(--ink); padding: 8px;">
+        <p id="file-error" class="text-red-600 text-sm mt-1 hidden" style="color: var(--pink); font-weight: 800;"></p>
+        <!-- Animated preview -->
+        <div id="preview-wrap" class="hidden mt-3" style="margin-top: 12px;">
+          <p class="text-xs text-gray-400 mb-1" style="font-size: 12px; text-transform: uppercase;">Preview</p>
+          <img id="preview-img" src="" alt="preview"
+               class="max-h-48 rounded-lg border border-gray-200 object-contain"
+               style="max-height: 192px; border: 2px solid var(--ink); background: var(--paper); padding: 8px;">
+          <span id="gif-badge" class="hidden ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
+                style="background: #7c3aed; color: white; padding: 4px 8px; font-weight: 900; text-transform: uppercase; font-size: 11px;">Animated GIF</span>
+        </div>
+      </label>
+
+      <label>
+        Title
+        <input id="title" name="title" placeholder="BIG MOOD">
+      </label>
+
+      <label>
+        Tags
+        <input id="tags" name="tags" placeholder="reaction, funny, whatsapp">
+      </label>
+
+      <button type="submit" class="button button-teal full-width">
         Publish Sticker
       </button>
     </form>
-  </div>
+  </section>
 
   <script>
+    var fileInput  = document.getElementById('file');
+    var errorEl    = document.getElementById('file-error');
+    var previewWrap = document.getElementById('preview-wrap');
+    var previewImg  = document.getElementById('preview-img');
+    var gifBadge    = document.getElementById('gif-badge');
+
+    fileInput.addEventListener('change', function () {
+      errorEl.classList.add('hidden');
+      previewWrap.classList.add('hidden');
+      gifBadge.classList.add('hidden');
+
+      var file = fileInput.files[0];
+      if (!file) return;
+
+      var isGif = file.type === 'image/gif';
+      var limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+
+      if (file.size > limit) {
+        errorEl.textContent = isGif
+          ? 'GIF must be 15 MB or smaller.'
+          : 'PNG/WebP must be 5 MB or smaller.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      // Show animated preview (works for GIF, PNG, and WebP).
+      var url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewWrap.classList.remove('hidden');
+      if (isGif) gifBadge.classList.remove('hidden');
+    });
+
     document.getElementById('upload-form').addEventListener('submit', function (e) {
-      var input = document.getElementById('file');
-      var error = document.getElementById('file-error');
-      if (input.files.length && input.files[0].size > 2 * 1024 * 1024) {
+      var file = fileInput.files[0];
+      if (!file) return;
+      var isGif = file.type === 'image/gif';
+      var limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+      if (file.size > limit) {
         e.preventDefault();
-        error.classList.remove('hidden');
-      } else {
-        error.classList.add('hidden');
+        errorEl.textContent = isGif
+          ? 'GIF must be 15 MB or smaller.'
+          : 'PNG/WebP must be 5 MB or smaller.';
+        errorEl.classList.remove('hidden');
       }
     });
   </script>

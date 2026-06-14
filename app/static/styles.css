@@ -133,6 +133,11 @@ button {
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
+  text-align: center;
+}
+
+.eyebrow {
+  margin-bottom: 16px;
 }
 
 h1,
@@ -186,7 +191,7 @@ h1 {
 
 .sticker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 250px));
   gap: 24px;
   padding: 32px 0;
 }
@@ -230,9 +235,9 @@ h1 {
 
 .card-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   margin-top: 16px;
 }
 

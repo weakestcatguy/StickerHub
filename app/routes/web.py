@@ -9,8 +9,10 @@ from app import db
 from app.models import Sticker, User, UserDownload
 from app.routes.stickers import MAX_FILE_SIZE
 
-ALLOWED_EXTENSIONS = {".png", ".webp"}
-ALLOWED_MIMETYPES = {"image/png", "image/webp"}
+ALLOWED_EXTENSIONS = {".png", ".webp", ".gif"}
+ALLOWED_MIMETYPES = {"image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+
+FORMAT_MAP = {"image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 
 web_bp = Blueprint("web", __name__)
 
@@ -29,8 +31,10 @@ def validate_sticker_file(uploaded_file):
     uploaded_file.seek(0, os.SEEK_END)
     size = uploaded_file.tell()
     uploaded_file.seek(0)
-    if size > MAX_FILE_SIZE:
-        return "Sticker files must be 2MB or smaller."
+    gif_max = 15 * 1024 * 1024  # animated GIFs can be larger
+    limit = gif_max if uploaded_file.mimetype == "image/gif" else MAX_FILE_SIZE
+    if size > limit:
+        return "PNG/WebP stickers must be 5MB or smaller; GIFs must be 15MB or smaller."
 
     return None
 
@@ -129,19 +133,42 @@ def upload():
     size = uploaded_file.tell()
     uploaded_file.seek(0)
 
-    result = cloudinary.uploader.upload(
-        uploaded_file,
-        folder="stickerhub",
-        upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
-        resource_type="image",
-        format="webp",
-        transformation=[{"quality": "auto", "fetch_format": "webp"}],
-    )
+    detected_format = FORMAT_MAP[uploaded_file.mimetype]  # "png", "webp", or "gif"
+
+    # PNG: uploaded as-is to preserve transparent background.
+    # GIF: uploaded as-is to preserve animation frames — no format conversion.
+    # WebP: quality-optimised WebP encoding.
+    if detected_format == "png":
+        upload_kwargs = dict(
+            folder="stickerhub",
+            upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
+            resource_type="image",
+            format="png",
+            transformation=[{"quality": "auto"}],
+        )
+    elif detected_format == "gif":
+        upload_kwargs = dict(
+            folder="stickerhub",
+            upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
+            resource_type="image",
+            format="gif",
+            # No transformation — preserves all animation frames.
+        )
+    else:
+        upload_kwargs = dict(
+            folder="stickerhub",
+            upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
+            resource_type="image",
+            format="webp",
+            transformation=[{"quality": "auto", "fetch_format": "webp"}],
+        )
+
+    result = cloudinary.uploader.upload(uploaded_file, **upload_kwargs)
 
     sticker = Sticker(
         cloudinary_public_id=result["public_id"],
         cloudinary_url=result["secure_url"],
-        format="webp",
+        format=detected_format,
         size=size,
         title=(request.form.get("title") or "").strip() or None,
         tags=(request.form.get("tags") or "").strip() or None,
@@ -200,4 +227,4 @@ def download_sticker(sticker_id):
         sticker.download_count += 1
         db.session.commit()
 
-    return redirect(sticker.cloudinary_url)
+    return redirect(sticker.original_format_url)

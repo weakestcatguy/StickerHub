@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - StickerHub{% endblock %}
+{% block title %}Profile - StickerHub{% endblock %}
 
 {% block content %}
   <section class="dashboard">
     <div class="dashboard-header">
       <div>
-        <p class="eyebrow">Private Dashboard</p>
+        <p class="eyebrow">Your Profile</p>
         <h1>Your Stickers</h1>
       </div>
-      <p class="hero-note">Upload PNG or WebP. Maximum size: 2MB.</p>
+      <p class="hero-note">Upload PNG or WebP (max 5 MB) · Animated GIF (max 15 MB).</p>
     </div>
 
     <section class="form-panel compact">
       <h2>Upload Sticker</h2>
-      <form action="{{ url_for('web.upload_sticker') }}" method="post" enctype="multipart/form-data">
+      <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data">
         <label>
           Sticker File
-          <input name="file" type="file" accept="image/png,image/webp" required>
+          <input name="file" type="file" accept="image/png,image/webp,image/gif" required>
         </label>
         <label>
           Title
@@ -36,8 +36,11 @@
       <section class="sticker-grid dashboard-grid">
         {% for sticker in uploaded %}
           <article class="sticker-card">
-            <div class="sticker-frame">
+            <div class="sticker-frame" style="position:relative;">
               <img src="{{ sticker.cloudinary_url }}" alt="{{ sticker.title or 'Sticker' }}">
+              {% if sticker.format == 'gif' %}
+                <span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.05em;">GIF</span>
+              {% endif %}
             </div>
             <div class="sticker-body">
               <form action="{{ url_for('web.edit_sticker', sticker_id=sticker.id) }}" method="post" class="edit-form">
@@ -73,8 +76,11 @@
       <section class="sticker-grid dashboard-grid">
         {% for sticker in downloaded %}
           <article class="sticker-card">
-            <div class="sticker-frame">
+            <div class="sticker-frame" style="position:relative;">
               <img src="{{ sticker.cloudinary_url }}" alt="{{ sticker.title or 'Sticker' }}">
+              {% if sticker.format == 'gif' %}
+                <span style="position:absolute;top:6px;left:6px;background:#7c3aed;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.05em;">GIF</span>
+              {% endif %}
             </div>
             <div class="sticker-body">
               <h3>{{ sticker.title or "Untitled Sticker" }}</h3>
