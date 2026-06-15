@@ -10,6 +10,7 @@
     </p>
 
     <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>
         Sticker File
         <input id="file" name="file" type="file" accept=".png,.webp,.gif" required
@@ -23,6 +24,47 @@
                style="max-height: 192px; border: 2px solid var(--ink); background: var(--paper); padding: 8px;">
           <span id="gif-badge" class="hidden ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
                 style="background: #7c3aed; color: white; padding: 4px 8px; font-weight: 900; text-transform: uppercase; font-size: 11px;">Animated GIF</span>
+          
+          <!-- Masking Tools -->
+          <div class="flex gap-2 hidden" id="mask-buttons" style="margin-top: 12px; width: 100%;">
+            <button type="button" id="auto-mask-btn" class="button button-yellow" style="flex: 1;">
+              <span id="auto-mask-text">✨ Auto-Mask</span>
+              <span id="auto-mask-loading" class="hidden">
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="vertical-align: middle; animation: spin 1s linear infinite;">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span id="auto-mask-progress">0%</span>
+              </span>
+            </button>
+            <button type="button" id="manual-mask-btn" class="button button-teal" style="flex: 1;">
+              🖌️ Manual Editor
+            </button>
+          </div>
+          <p id="auto-mask-error" class="hidden mt-2 text-sm" style="color: var(--pink); font-weight: 800; text-align: center;"></p>
+        </div>
+
+        <!-- Manual Masking Container -->
+        <div id="manual-mask-container" class="hidden" style="margin-top: 12px; border: 2px solid var(--ink); background: var(--paper); padding: 12px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <p class="text-xs text-gray-400" style="font-size: 12px; text-transform: uppercase; font-weight: bold;">Manual Editor</p>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" id="tool-erase" class="button button-pink" style="padding: 4px 8px; font-size: 12px;">Eraser</button>
+              <button type="button" id="tool-restore" class="button" style="padding: 4px 8px; font-size: 12px; background: #ddd; color: #333; border: 2px solid var(--ink);">Restore</button>
+            </div>
+          </div>
+          <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold;">
+            <label for="brush-size">Brush Size:</label>
+            <input type="range" id="brush-size" min="5" max="150" value="30" style="flex: 1;">
+            <span id="brush-size-val">30px</span>
+          </div>
+          <div id="canvas-wrapper" style="position: relative; overflow: hidden; border: 2px solid var(--ink); border-radius: 4px; background: repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%) 50% / 20px 20px; max-height: 400px; display: flex; justify-content: center;">
+            <canvas id="mask-canvas" style="display: block; max-width: 100%; max-height: 400px; object-fit: contain; cursor: crosshair; touch-action: none;"></canvas>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <button type="button" id="apply-mask-btn" class="button button-teal" style="flex: 1; padding: 6px;">Apply Mask</button>
+            <button type="button" id="cancel-mask-btn" class="button button-yellow" style="flex: 1; padding: 6px;">Cancel</button>
+          </div>
         </div>
       </label>
 
@@ -36,29 +78,74 @@
         <input id="tags" name="tags" placeholder="reaction, funny, whatsapp">
       </label>
 
-      <button type="submit" class="button button-teal full-width">
-        Publish Sticker
+      <button type="submit" id="submit-btn" class="button button-teal full-width">
+        Confirm &amp; Upload Sticker
       </button>
     </form>
   </section>
 
-  <script>
-    var fileInput  = document.getElementById('file');
-    var errorEl    = document.getElementById('file-error');
-    var previewWrap = document.getElementById('preview-wrap');
-    var previewImg  = document.getElementById('preview-img');
-    var gifBadge    = document.getElementById('gif-badge');
+  <style>
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script type="module">
+    import imglyRemoveBackground from "https://unpkg.com/@imgly/background-removal@1.4.5/dist/index.mjs";
+
+    const fileInput  = document.getElementById('file');
+    const errorEl    = document.getElementById('file-error');
+    const previewWrap = document.getElementById('preview-wrap');
+    const previewImg  = document.getElementById('preview-img');
+    const gifBadge    = document.getElementById('gif-badge');
+    
+    const maskButtons = document.getElementById('mask-buttons');
+    const autoMaskBtn = document.getElementById('auto-mask-btn');
+    const autoMaskText = document.getElementById('auto-mask-text');
+    const autoMaskLoading = document.getElementById('auto-mask-loading');
+    const autoMaskProgress = document.getElementById('auto-mask-progress');
+    const autoMaskError = document.getElementById('auto-mask-error');
+    
+    const manualMaskBtn = document.getElementById('manual-mask-btn');
+    const manualMaskContainer = document.getElementById('manual-mask-container');
+    const toolEraseBtn = document.getElementById('tool-erase');
+    const toolRestoreBtn = document.getElementById('tool-restore');
+    const brushSizeInput = document.getElementById('brush-size');
+    const brushSizeVal = document.getElementById('brush-size-val');
+    const maskCanvas = document.getElementById('mask-canvas');
+    const applyMaskBtn = document.getElementById('apply-mask-btn');
+    const cancelMaskBtn = document.getElementById('cancel-mask-btn');
+
+    const submitBtn = document.getElementById('submit-btn');
+
+    let currentUrl = null;
+    let isProcessing = false;
+
+    let currentMode = 'erase';
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let ctx = maskCanvas.getContext('2d', { willReadFrequently: true });
+    const originalImageObj = new Image();
 
     fileInput.addEventListener('change', function () {
       errorEl.classList.add('hidden');
       previewWrap.classList.add('hidden');
       gifBadge.classList.add('hidden');
+      maskButtons.classList.add('hidden');
+      autoMaskBtn.classList.remove('hidden');
+      autoMaskError.classList.add('hidden');
 
-      var file = fileInput.files[0];
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+        currentUrl = null;
+      }
+
+      const file = fileInput.files[0];
       if (!file) return;
 
-      var isGif = file.type === 'image/gif';
-      var limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+      const isGif = file.type === 'image/gif';
+      const limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
 
       if (file.size > limit) {
         errorEl.textContent = isGif
@@ -68,24 +155,259 @@
         return;
       }
 
-      // Show animated preview (works for GIF, PNG, and WebP).
-      var url = URL.createObjectURL(file);
-      previewImg.src = url;
+      currentUrl = URL.createObjectURL(file);
+      previewImg.src = currentUrl;
+      originalImageObj.src = currentUrl; 
+      
       previewWrap.classList.remove('hidden');
-      if (isGif) gifBadge.classList.remove('hidden');
+      
+      if (isGif) {
+        gifBadge.classList.remove('hidden');
+      } else {
+        maskButtons.classList.remove('hidden');
+      }
+    });
+
+    autoMaskBtn.addEventListener('click', async function() {
+      if (isProcessing) return;
+      
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      isProcessing = true;
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+      submitBtn.textContent = 'Processing Image...';
+      
+      autoMaskBtn.disabled = true;
+      autoMaskBtn.style.opacity = '0.7';
+      autoMaskText.classList.add('hidden');
+      autoMaskLoading.classList.remove('hidden');
+      autoMaskError.classList.add('hidden');
+      autoMaskProgress.textContent = '0%';
+      manualMaskBtn.disabled = true;
+
+      try {
+        const config = {
+          progress: (key, current, total) => {
+            const percentage = Math.round((current / total) * 100);
+            autoMaskProgress.textContent = `${percentage}%`;
+          }
+        };
+
+        const imageSrc = currentUrl;
+        const blob = await imglyRemoveBackground(imageSrc, config);
+        
+        if (currentUrl) {
+          URL.revokeObjectURL(currentUrl);
+        }
+        
+        currentUrl = URL.createObjectURL(blob);
+        previewImg.src = currentUrl;
+
+        const dt = new DataTransfer();
+        const newFileName = file.name.replace(/\.[^/.]+$/, "") + "-masked.png";
+        dt.items.add(new File([blob], newFileName, { type: "image/png" }));
+        fileInput.files = dt.files;
+        
+        autoMaskBtn.classList.add('hidden');
+      } catch (err) {
+        console.error("Background removal failed:", err);
+        autoMaskError.textContent = "Failed to remove background. Please try again or manually edit.";
+        autoMaskError.classList.remove('hidden');
+      } finally {
+        isProcessing = false;
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.textContent = 'Confirm & Upload Sticker';
+        
+        autoMaskBtn.disabled = false;
+        autoMaskBtn.style.opacity = '1';
+        autoMaskText.classList.remove('hidden');
+        autoMaskLoading.classList.add('hidden');
+        manualMaskBtn.disabled = false;
+      }
+    });
+
+    function updateToolUI() {
+      if (currentMode === 'erase') {
+        toolEraseBtn.classList.replace('button-yellow', 'button-pink');
+        toolEraseBtn.style.background = 'var(--pink)';
+        toolEraseBtn.style.color = 'white';
+        toolEraseBtn.style.borderColor = 'var(--pink)';
+        
+        toolRestoreBtn.style.background = '#ddd';
+        toolRestoreBtn.style.color = '#333';
+        toolRestoreBtn.classList.remove('button-pink');
+      } else {
+        toolRestoreBtn.classList.add('button-pink');
+        toolRestoreBtn.style.background = 'var(--pink)';
+        toolRestoreBtn.style.color = 'white';
+        toolRestoreBtn.style.borderColor = 'var(--pink)';
+        
+        toolEraseBtn.style.background = '#ddd';
+        toolEraseBtn.style.color = '#333';
+        toolEraseBtn.classList.remove('button-pink');
+      }
+    }
+
+    toolEraseBtn.addEventListener('click', () => { currentMode = 'erase'; updateToolUI(); });
+    toolRestoreBtn.addEventListener('click', () => { currentMode = 'restore'; updateToolUI(); });
+
+    brushSizeInput.addEventListener('input', (e) => {
+      brushSizeVal.textContent = e.target.value + 'px';
+    });
+
+    manualMaskBtn.addEventListener('click', () => {
+      previewImg.classList.add('hidden');
+      maskButtons.classList.add('hidden');
+      autoMaskError.classList.add('hidden');
+      manualMaskContainer.classList.remove('hidden');
+      submitBtn.classList.add('hidden'); 
+      
+      const img = new Image();
+      img.onload = () => {
+        maskCanvas.width = img.width;
+        maskCanvas.height = img.height;
+        ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = currentUrl;
+      
+      updateToolUI();
+    });
+
+    function getCanvasCoords(e) {
+      const rect = maskCanvas.getBoundingClientRect();
+      const scaleX = maskCanvas.width / rect.width;
+      const scaleY = maskCanvas.height / rect.height;
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDrawing(e) {
+      isDrawing = true;
+      const { x, y } = getCanvasCoords(e);
+      lastX = x;
+      lastY = y;
+      draw(e);
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+      ctx.beginPath();
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      
+      const { x, y } = getCanvasCoords(e);
+      const brushSize = parseInt(brushSizeInput.value, 10);
+
+      if (currentMode === 'erase') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      } else {
+        const dx = x - lastX;
+        const dy = y - lastY;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        const steps = Math.max(1, distance / (brushSize / 4));
+        
+        ctx.globalCompositeOperation = 'source-over';
+        for(let i=0; i<=steps; i++) {
+          const interpX = lastX + dx * (i/steps);
+          const interpY = lastY + dy * (i/steps);
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(interpX, interpY, brushSize / 2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(originalImageObj, 0, 0, maskCanvas.width, maskCanvas.height);
+          ctx.restore();
+        }
+      }
+      
+      lastX = x;
+      lastY = y;
+    }
+
+    maskCanvas.addEventListener('mousedown', startDrawing);
+    maskCanvas.addEventListener('mousemove', draw);
+    maskCanvas.addEventListener('mouseup', stopDrawing);
+    maskCanvas.addEventListener('mouseout', stopDrawing);
+    maskCanvas.addEventListener('touchstart', startDrawing, { passive: false });
+    maskCanvas.addEventListener('touchmove', draw, { passive: false });
+    maskCanvas.addEventListener('touchend', stopDrawing);
+    maskCanvas.addEventListener('touchcancel', stopDrawing);
+
+    applyMaskBtn.addEventListener('click', () => {
+      maskCanvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        if (currentUrl) {
+          URL.revokeObjectURL(currentUrl);
+        }
+        currentUrl = URL.createObjectURL(blob);
+        previewImg.src = currentUrl;
+
+        const file = fileInput.files[0] || new File([""], "sticker.png");
+        const dt = new DataTransfer();
+        const newFileName = file.name.replace(/\.[^/.]+$/, "") + "-masked.png";
+        dt.items.add(new File([blob], newFileName, { type: "image/png" }));
+        fileInput.files = dt.files;
+        
+        manualMaskContainer.classList.add('hidden');
+        previewImg.classList.remove('hidden');
+        maskButtons.classList.remove('hidden');
+        submitBtn.classList.remove('hidden');
+      }, 'image/png');
+    });
+
+    cancelMaskBtn.addEventListener('click', () => {
+      manualMaskContainer.classList.add('hidden');
+      previewImg.classList.remove('hidden');
+      maskButtons.classList.remove('hidden');
+      submitBtn.classList.remove('hidden');
     });
 
     document.getElementById('upload-form').addEventListener('submit', function (e) {
-      var file = fileInput.files[0];
+      if (isProcessing) {
+        e.preventDefault();
+        return;
+      }
+      const file = fileInput.files[0];
       if (!file) return;
-      var isGif = file.type === 'image/gif';
-      var limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
+      const isGif = file.type === 'image/gif';
+      const limit = isGif ? 15 * 1024 * 1024 : 5 * 1024 * 1024;
       if (file.size > limit) {
         e.preventDefault();
         errorEl.textContent = isGif
           ? 'GIF must be 15 MB or smaller.'
           : 'PNG/WebP must be 5 MB or smaller.';
         errorEl.classList.remove('hidden');
+      }
+    });
+    
+    window.addEventListener('beforeunload', () => {
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
       }
     });
   </script>

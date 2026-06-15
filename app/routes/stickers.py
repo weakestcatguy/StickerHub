@@ -6,17 +6,34 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy.exc import IntegrityError
 
 from app import db
+from app.extensions import limiter
 from app.models import Sticker, UserDownload
+from app.security import sanitize_tags, sanitize_text, validate_sort, verify_image_upload
 
 stickers_bp = Blueprint("stickers", __name__)
 
 ALLOWED_FORMATS = {"image/png": "png", "image/webp": "webp", "image/gif": "gif"}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB to accommodate larger PNGs
+MAX_FILE_SIZE = 5 * 1024 * 1024
+GIF_MAX_FILE_SIZE = 15 * 1024 * 1024
+
+
+def current_user_id() -> int:
+    return int(get_jwt_identity())
+
+
+def get_owned_sticker(sticker_id: int) -> tuple[Sticker | None, tuple[dict, int] | None]:
+    sticker = db.session.get(Sticker, sticker_id)
+    if sticker is None:
+        return None, ({"error": "Sticker not found."}, 404)
+    if sticker.uploader_id != current_user_id():
+        return sticker, ({"error": "You do not have permission to access this sticker."}, 403)
+    return sticker, None
 
 
 @stickers_bp.get("")
+@limiter.limit("60 per minute")
 def list_stickers():
-    sort = request.args.get("sort", "newest")
+    sort = validate_sort(request.args.get("sort", "newest"))
     query = Sticker.query
 
     if sort == "trending":
@@ -30,35 +47,35 @@ def list_stickers():
 
 @stickers_bp.post("")
 @jwt_required()
+@limiter.limit("20 per hour")
 def upload_sticker():
     uploaded_file = request.files.get("file")
     if uploaded_file is None:
         return {"error": "Sticker file is required."}, 400
 
     if uploaded_file.mimetype not in ALLOWED_FORMATS:
-        return {"error": "Only PNG and WebP sticker files are allowed."}, 400
+        return {"error": "Only PNG, WebP, and GIF sticker files are allowed."}, 400
+
+    content_error = verify_image_upload(uploaded_file, uploaded_file.mimetype)
+    if content_error:
+        return {"error": content_error}, 400
 
     uploaded_file.seek(0, os.SEEK_END)
     size = uploaded_file.tell()
     uploaded_file.seek(0)
 
-    gif_max = 15 * 1024 * 1024
-    limit = gif_max if uploaded_file.mimetype == "image/gif" else MAX_FILE_SIZE
+    limit = GIF_MAX_FILE_SIZE if uploaded_file.mimetype == "image/gif" else MAX_FILE_SIZE
     if size > limit:
         return {"error": "PNG/WebP stickers must be 5MB or smaller; GIFs must be 15MB or smaller."}, 413
 
-    detected_format = ALLOWED_FORMATS[uploaded_file.mimetype]  # "png", "webp", or "gif"
+    detected_format = ALLOWED_FORMATS[uploaded_file.mimetype]
 
-    # For PNG: upload without format conversion to preserve transparency.
-    # For GIF: upload without format conversion to preserve animation frames.
-    # For WebP: convert with quality optimisation.
     if detected_format == "png":
         upload_kwargs = dict(
             folder="stickerhub",
             upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
             resource_type="image",
             format="png",
-            # Keep the alpha channel – do NOT apply fetch_format=webp here
             transformation=[{"quality": "auto"}],
         )
     elif detected_format == "gif":
@@ -67,7 +84,6 @@ def upload_sticker():
             upload_preset=os.getenv("CLOUDINARY_UPLOAD_PRESET"),
             resource_type="image",
             format="gif",
-            # No transformation — preserves all animation frames.
         )
     else:
         upload_kwargs = dict(
@@ -85,9 +101,9 @@ def upload_sticker():
         cloudinary_url=result["secure_url"],
         format=detected_format,
         size=size,
-        title=(request.form.get("title") or "").strip() or None,
-        tags=(request.form.get("tags") or "").strip() or None,
-        uploader_id=int(get_jwt_identity()),
+        title=sanitize_text(request.form.get("title"), max_length=120),
+        tags=sanitize_tags(request.form.get("tags")),
+        uploader_id=current_user_id(),
     )
     db.session.add(sticker)
     db.session.commit()
@@ -97,8 +113,9 @@ def upload_sticker():
 
 @stickers_bp.get("/dashboard")
 @jwt_required()
+@limiter.limit("60 per minute")
 def dashboard():
-    user_id = int(get_jwt_identity())
+    user_id = current_user_id()
     uploaded = Sticker.query.filter_by(uploader_id=user_id).order_by(Sticker.created_at.desc()).all()
     downloaded = (
         db.session.query(Sticker)
@@ -116,16 +133,17 @@ def dashboard():
 
 @stickers_bp.patch("/<int:sticker_id>")
 @jwt_required()
+@limiter.limit("60 per hour")
 def update_sticker(sticker_id):
-    sticker = Sticker.query.get_or_404(sticker_id)
-    if sticker.uploader_id != int(get_jwt_identity()):
-        return {"error": "You can edit only stickers you uploaded."}, 403
+    sticker, error = get_owned_sticker(sticker_id)
+    if error:
+        return error
 
     data = request.get_json(silent=True) or {}
     if "title" in data:
-        sticker.title = (data["title"] or "").strip() or None
+        sticker.title = sanitize_text(data.get("title"), max_length=120)
     if "tags" in data:
-        sticker.tags = ",".join(tag.strip() for tag in (data["tags"] or "").split(",") if tag.strip()) or None
+        sticker.tags = sanitize_tags(data.get("tags"))
 
     db.session.commit()
     return {"sticker": sticker.to_owner_dict()}
@@ -133,10 +151,11 @@ def update_sticker(sticker_id):
 
 @stickers_bp.delete("/<int:sticker_id>")
 @jwt_required()
+@limiter.limit("60 per hour")
 def delete_sticker(sticker_id):
-    sticker = Sticker.query.get_or_404(sticker_id)
-    if sticker.uploader_id != int(get_jwt_identity()):
-        return {"error": "You can delete only stickers you uploaded."}, 403
+    sticker, error = get_owned_sticker(sticker_id)
+    if error:
+        return error
 
     cloudinary.uploader.destroy(sticker.cloudinary_public_id, resource_type="image")
     db.session.delete(sticker)
@@ -146,9 +165,13 @@ def delete_sticker(sticker_id):
 
 @stickers_bp.post("/<int:sticker_id>/download")
 @jwt_required()
+@limiter.limit("120 per hour")
 def record_download(sticker_id):
-    sticker = Sticker.query.get_or_404(sticker_id)
-    user_id = int(get_jwt_identity())
+    sticker = db.session.get(Sticker, sticker_id)
+    if sticker is None:
+        return {"error": "Sticker not found."}, 404
+
+    user_id = current_user_id()
 
     sticker.download_count += 1
     db.session.add(UserDownload(user_id=user_id, sticker_id=sticker.id))
@@ -160,7 +183,6 @@ def record_download(sticker_id):
         sticker.download_count += 1
         db.session.commit()
 
-    # Always serve the original format URL so PNG transparency is preserved.
     download_url = sticker.original_format_url
     return {
         "download_url": download_url,

@@ -17,7 +17,9 @@
           {% if current_user.is_authenticated %}
             <a class="button button-yellow" href="{{ url_for('web.dashboard') }}">Profile</a>
             <a class="button button-teal" href="{{ url_for('web.upload') }}">Upload</a>
+            <a class="button" href="{{ url_for('web.security_settings') }}">Security</a>
             <form action="{{ url_for('web.logout') }}" method="post" style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="button button-pink" type="submit">Log Out</button>
             </form>
           {% else %}

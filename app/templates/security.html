@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Security Settings - StickerHub{% endblock %}
+
+{% block content %}
+  <section class="form-panel" style="margin-inline: auto;">
+    <h2>Security Settings</h2>
+    <p style="font-weight: 800; margin-bottom: 24px; text-transform: uppercase; font-size: 14px;">
+      MFA status:
+      {% if mfa_enabled %}
+        <span style="color: var(--teal);">Enabled</span>
+      {% else %}
+        <span style="color: var(--pink);">Disabled</span>
+      {% endif %}
+    </p>
+
+    {% if not mfa_enabled %}
+      <form method="post" style="margin-bottom: 24px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="setup">
+        <button type="submit" class="button button-yellow full-width">Start MFA Setup</button>
+      </form>
+
+      {% if provisioning_uri %}
+        <p style="font-size: 14px; margin-bottom: 12px;">Add this account to Google Authenticator, Authy, or 1Password:</p>
+        <code style="display: block; word-break: break-all; margin-bottom: 16px; padding: 12px; background: var(--paper); border: 2px solid var(--ink);">{{ provisioning_uri }}</code>
+
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="enable">
+          <label>
+            Confirm Authenticator Code
+            <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+          </label>
+          <button type="submit" class="button button-teal full-width">Enable MFA</button>
+        </form>
+      {% endif %}
+    {% else %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="disable">
+        <label>
+          Password
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+          Authenticator Code
+          <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+        </label>
+        <button type="submit" class="button button-pink full-width">Disable MFA</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

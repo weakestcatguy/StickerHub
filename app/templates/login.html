@@ -6,6 +6,7 @@
   <section class="form-panel" style="margin-inline: auto;">
     <h2>Log In</h2>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>
         Email or Username
         <input id="identifier" name="identifier" autocomplete="username" required>

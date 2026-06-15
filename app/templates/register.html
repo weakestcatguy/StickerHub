@@ -6,6 +6,7 @@
   <section class="form-panel" style="margin-inline: auto;">
     <h2>Create Account</h2>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>
         Username
         <input id="username" name="username" autocomplete="username" required>
@@ -17,7 +18,7 @@
       </label>
 
       <label>
-        Password
+        Password (8+ chars, include a letter and number)
         <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
       </label>
 

@@ -13,6 +13,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    mfa_secret = db.Column(db.String(64), nullable=True)
+    mfa_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    token_version = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     stickers = db.relationship("Sticker", back_populates="uploader", cascade="all, delete-orphan")
@@ -21,14 +24,22 @@ class User(UserMixin, db.Model):
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
+    def change_password(self, password):
+        self.set_password(password)
+        self.token_version += 1
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def invalidate_sessions(self):
+        self.token_version += 1
 
     def to_private_dict(self):
         return {
             "id": self.id,
             "username": self.username,
             "email": self.email,
+            "mfa_enabled": self.mfa_enabled,
         }
 
 

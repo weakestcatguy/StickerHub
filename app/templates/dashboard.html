@@ -15,6 +15,7 @@
     <section class="form-panel compact">
       <h2>Upload Sticker</h2>
       <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>
           Sticker File
           <input name="file" type="file" accept="image/png,image/webp,image/gif" required>
@@ -44,6 +45,7 @@
             </div>
             <div class="sticker-body">
               <form action="{{ url_for('web.edit_sticker', sticker_id=sticker.id) }}" method="post" class="edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label>
                   Title
                   <input name="title" value="{{ sticker.title or '' }}">
@@ -58,6 +60,7 @@
                 </div>
               </form>
               <form action="{{ url_for('web.delete_sticker', sticker_id=sticker.id) }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="button button-pink full-width" type="submit">Delete</button>
               </form>
             </div>

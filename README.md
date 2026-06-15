@@ -24,6 +24,8 @@ The Vercel entrypoint is `main.py` (see `pyproject.toml`). Push to GitHub and Ve
 
 Public feed pages and API responses intentionally omit uploader identity.
 
+See [SECURITY.md](SECURITY.md) for authentication, rate limits, MFA, headers, and pre-deploy checks.
+
 ## Cloudinary
 
 Create an unsigned or signed upload preset named `stickerhub_webp_2mb` in Cloudinary with:
