@@ -9,7 +9,7 @@ python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-flask --app app.py run
+flask --app main run
 ```
 
 The app reads environment variables from `.env`, and creates missing database tables on startup. Use PostgreSQL through `DATABASE_URL`:
@@ -18,7 +18,9 @@ The app reads environment variables from `.env`, and creates missing database ta
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stickerhub
 ```
 
-On Vercel, add the same values in Project Settings -> Environment Variables. At minimum set `DATABASE_URL`, `FLASK_SECRET_KEY`, `JWT_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_UPLOAD_PRESET`.
+On Vercel, add the same values in Project Settings -> Environment Variables. At minimum set `DATABASE_URL`, `FLASK_SECRET_KEY`, `JWT_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and `CLOUDINARY_UPLOAD_PRESET`. Also set `FRONTEND_ORIGIN` to your production URL (for example `https://stickerhub.xyz`).
+
+The Vercel entrypoint is `main.py` (see `pyproject.toml`). Push to GitHub and Vercel will redeploy automatically.
 
 Public feed pages and API responses intentionally omit uploader identity.
 

@@ -1,6 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import cloudinary
 from dotenv import load_dotenv
@@ -25,12 +26,23 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
+def normalize_database_url(database_url):
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    parsed = urlparse(database_url)
+    if not parsed.query:
+        return database_url
+
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    params.pop("channel_binding", None)
+    return urlunparse(parsed._replace(query=urlencode(params, doseq=True)))
+
+
 def resolve_database_url():
     database_url = os.getenv("DATABASE_URL")
-    if database_url and database_url.startswith("postgres://"):
-        return database_url.replace("postgres://", "postgresql://", 1)
     if database_url:
-        return database_url
+        return normalize_database_url(database_url)
     if os.getenv("VERCEL"):
         sqlite_path = Path(tempfile.gettempdir()) / "stickerhub.db"
         return f"sqlite:///{sqlite_path.as_posix()}"
@@ -49,10 +61,15 @@ def initialize_database(app):
 
 def create_app():
     project_root = Path(__file__).resolve().parents[1]
+    package_root = Path(__file__).resolve().parent
     if not os.getenv("VERCEL"):
         load_dotenv(project_root / ".env")
 
-    app = Flask(__name__, template_folder="templates", static_folder="static")
+    app = Flask(
+        __name__,
+        template_folder=str(package_root / "templates"),
+        static_folder=str(package_root / "static"),
+    )
     app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", app.config["SECRET_KEY"])
     app.config["SQLALCHEMY_DATABASE_URI"] = resolve_database_url()
