@@ -8,11 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.extensions import limiter
 from app.models import Sticker, UserDownload
-from app.security import sanitize_tags, sanitize_text, validate_sort, verify_image_upload
+from app.security import sanitize_tags, sanitize_text, validate_sort
 
 stickers_bp = Blueprint("stickers", __name__)
 
-ALLOWED_FORMATS = {"image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+ALLOWED_FORMATS = {"image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/jpeg": "jpeg", "image/jpg": "jpeg", "image/pjpeg": "jpeg"}
 MAX_FILE_SIZE = 5 * 1024 * 1024
 GIF_MAX_FILE_SIZE = 15 * 1024 * 1024
 
@@ -54,11 +54,7 @@ def upload_sticker():
         return {"error": "Sticker file is required."}, 400
 
     if uploaded_file.mimetype not in ALLOWED_FORMATS:
-        return {"error": "Only PNG, WebP, and GIF sticker files are allowed."}, 400
-
-    content_error = verify_image_upload(uploaded_file, uploaded_file.mimetype)
-    if content_error:
-        return {"error": content_error}, 400
+        return {"error": "Only PNG, WebP, JPEG, and GIF sticker files are allowed."}, 400
 
     uploaded_file.seek(0, os.SEEK_END)
     size = uploaded_file.tell()
@@ -66,7 +62,7 @@ def upload_sticker():
 
     limit = GIF_MAX_FILE_SIZE if uploaded_file.mimetype == "image/gif" else MAX_FILE_SIZE
     if size > limit:
-        return {"error": "PNG/WebP stickers must be 5MB or smaller; GIFs must be 15MB or smaller."}, 413
+        return {"error": "Image files must be 5MB or smaller; GIFs must be 15MB or smaller."}, 413
 
     detected_format = ALLOWED_FORMATS[uploaded_file.mimetype]
 

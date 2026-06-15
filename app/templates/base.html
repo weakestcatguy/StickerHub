@@ -15,12 +15,11 @@
           <a class="button" href="{{ url_for('web.index') }}">Feed</a>
           <a class="button" href="{{ url_for('web.index', sort='trending') }}">Trending</a>
           {% if current_user.is_authenticated %}
-            <a class="button button-yellow" href="{{ url_for('web.dashboard') }}">Profile</a>
-            <a class="button button-teal" href="{{ url_for('web.upload') }}">Upload</a>
-            <a class="button" href="{{ url_for('web.security_settings') }}">Security</a>
-            <form action="{{ url_for('web.logout') }}" method="post" style="display: inline;">
+            <a class="button button-yellow" href="{{ url_for('web.dashboard') }}" style="flex: 1;">Profile</a>
+            <a class="button button-teal" href="{{ url_for('web.upload') }}" style="flex: 1;">Upload</a>
+            <form action="{{ url_for('web.logout') }}" method="post" style="display: flex; flex: 1;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="button button-pink" type="submit">Log Out</button>
+              <button class="button button-pink" type="submit" style="width: 100%;">Log Out</button>
             </form>
           {% else %}
             <a class="button button-yellow" href="{{ url_for('web.login') }}">Log In</a>

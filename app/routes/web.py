@@ -1,7 +1,6 @@
 import os
 
 import cloudinary.uploader
-import pyotp
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import IntegrityError
@@ -18,10 +17,9 @@ from app.security import (
     validate_password,
     validate_sort,
     validate_username,
-    verify_image_upload,
 )
 
-ALLOWED_EXTENSIONS = {".png", ".webp", ".gif"}
+ALLOWED_EXTENSIONS = {".png", ".webp", ".gif", ".jpeg", ".jpg"}
 ALLOWED_MIMETYPES = set(ALLOWED_FORMATS.keys())
 
 web_bp = Blueprint("web", __name__)
@@ -33,21 +31,17 @@ def validate_sticker_file(uploaded_file):
 
     ext = os.path.splitext(uploaded_file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return "Only .png, .webp, and .gif sticker files are allowed."
+        return "Only .png, .jpeg, .jpg, .webp, and .gif sticker files are allowed."
 
     if uploaded_file.mimetype not in ALLOWED_MIMETYPES:
-        return "Only PNG, WebP, and GIF sticker files are allowed."
-
-    content_error = verify_image_upload(uploaded_file, uploaded_file.mimetype)
-    if content_error:
-        return content_error
+        return "Only PNG, JPEG, WebP, and GIF sticker files are allowed."
 
     uploaded_file.seek(0, os.SEEK_END)
     size = uploaded_file.tell()
     uploaded_file.seek(0)
     limit = GIF_MAX_FILE_SIZE if uploaded_file.mimetype == "image/gif" else MAX_FILE_SIZE
     if size > limit:
-        return "PNG/WebP stickers must be 5MB or smaller; GIFs must be 15MB or smaller."
+        return "Images must be 5MB or smaller; GIFs must be 15MB or smaller."
 
     return None
 
@@ -121,10 +115,6 @@ def login():
         flash("Invalid credentials.", "error")
         return render_template("login.html"), 401
 
-    if user.mfa_enabled:
-        session["pending_mfa_user_id"] = user.id
-        return redirect(url_for("web.mfa_login"))
-
     login_user(user, remember=False)
     session.permanent = True
     flash("Logged in.", "success")
@@ -134,33 +124,6 @@ def login():
     return redirect(url_for("web.dashboard"))
 
 
-@web_bp.route("/login/mfa", methods=["GET", "POST"])
-@limiter.limit("10 per minute", methods=["POST"])
-def mfa_login():
-    user_id = session.get("pending_mfa_user_id")
-    if not user_id:
-        return redirect(url_for("web.login"))
-
-    user = db.session.get(User, user_id)
-    if not user or not user.mfa_enabled:
-        session.pop("pending_mfa_user_id", None)
-        return redirect(url_for("web.login"))
-
-    if request.method == "GET":
-        return render_template("mfa_login.html")
-
-    code = (request.form.get("code") or "").strip()
-    totp = pyotp.TOTP(user.mfa_secret)
-    if not totp.verify(code, valid_window=1):
-        flash("Invalid authenticator code.", "error")
-        return render_template("mfa_login.html"), 401
-
-    session.pop("pending_mfa_user_id", None)
-    login_user(user, remember=False)
-    session.permanent = True
-    flash("Logged in.", "success")
-    return redirect(url_for("web.dashboard"))
-
 
 @web_bp.route("/logout", methods=["GET", "POST"])
 def logout():
@@ -168,7 +131,6 @@ def logout():
         current_user.invalidate_sessions()
         db.session.commit()
     logout_user()
-    session.pop("pending_mfa_user_id", None)
     flash("Logged out.", "success")
     return redirect(url_for("web.index"))
 
@@ -186,71 +148,6 @@ def dashboard():
     )
     return render_template("dashboard.html", uploaded=uploaded, downloaded=downloaded)
 
-
-@web_bp.route("/dashboard/security", methods=["GET", "POST"])
-@login_required
-@limiter.limit("20 per hour", methods=["POST"])
-def security_settings():
-    provisioning_uri = None
-    pending_secret = session.get("pending_mfa_secret")
-
-    if request.method == "POST":
-        action = request.form.get("action")
-
-        if action == "setup":
-            secret = pyotp.random_base32()
-            session["pending_mfa_secret"] = secret
-            totp = pyotp.TOTP(secret)
-            provisioning_uri = totp.provisioning_uri(name=current_user.email, issuer_name="StickerHub")
-            flash("Scan the setup URI in your authenticator app, then enter a code to enable MFA.", "success")
-
-        elif action == "enable":
-            secret = session.get("pending_mfa_secret")
-            code = (request.form.get("code") or "").strip()
-            if not secret:
-                flash("Start MFA setup first.", "error")
-            else:
-                totp = pyotp.TOTP(secret)
-                if totp.verify(code, valid_window=1):
-                    current_user.mfa_secret = secret
-                    current_user.mfa_enabled = True
-                    current_user.invalidate_sessions()
-                    db.session.commit()
-                    session.pop("pending_mfa_secret", None)
-                    login_user(current_user, remember=False)
-                    flash("Multi-factor authentication enabled.", "success")
-                    return redirect(url_for("web.security_settings"))
-                flash("Invalid authenticator code.", "error")
-
-        elif action == "disable":
-            code = (request.form.get("code") or "").strip()
-            password = request.form.get("password") or ""
-            if not current_user.check_password(password):
-                flash("Invalid password.", "error")
-            elif current_user.mfa_enabled:
-                totp = pyotp.TOTP(current_user.mfa_secret)
-                if not totp.verify(code, valid_window=1):
-                    flash("Invalid authenticator code.", "error")
-                else:
-                    current_user.mfa_enabled = False
-                    current_user.mfa_secret = None
-                    current_user.invalidate_sessions()
-                    db.session.commit()
-                    session.pop("pending_mfa_secret", None)
-                    login_user(current_user, remember=False)
-                    flash("Multi-factor authentication disabled.", "success")
-                    return redirect(url_for("web.security_settings"))
-
-    if pending_secret and not provisioning_uri:
-        totp = pyotp.TOTP(pending_secret)
-        provisioning_uri = totp.provisioning_uri(name=current_user.email, issuer_name="StickerHub")
-
-    return render_template(
-        "security.html",
-        mfa_enabled=current_user.mfa_enabled,
-        provisioning_uri=provisioning_uri,
-        pending_secret=pending_secret,
-    )
 
 
 @web_bp.route("/upload", methods=["GET", "POST"])

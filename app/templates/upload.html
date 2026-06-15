@@ -6,15 +6,19 @@
   <section class="form-panel" style="margin-inline: auto;">
     <h2>Upload a Sticker</h2>
     <p style="font-weight: 800; margin-bottom: 24px; text-transform: uppercase; font-size: 14px;">
-      PNG or WebP (max 5 MB) &middot; Animated GIF (max 15 MB)
+      Images (max 5 MB) &middot; Animated GIF (max 15 MB)
     </p>
 
     <form action="{{ url_for('web.upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>
-        Sticker File
-        <input id="file" name="file" type="file" accept=".png,.webp,.gif" required
-               style="border: 3px solid var(--ink); padding: 8px;">
+      <div style="margin-bottom: 16px;">
+        <span style="font-weight: bold; font-size: 14px;">Sticker File</span>
+        <label id="drop-zone" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border: 3px dashed var(--ink); padding: 32px; cursor: pointer; background: var(--paper); text-align: center; margin-top: 8px; transition: background 0.2s;">
+          <span style="font-weight: bold; margin-bottom: 8px; font-size: 16px;">Drag &amp; Drop or Click to Upload</span>
+          <span style="font-size: 12px; color: #555; text-transform: uppercase; font-weight: bold;">Supports PNG, JPG, WebP, GIF</span>
+          <input id="file" name="file" type="file" accept=".png,.webp,.gif,.jpeg,.jpg" required
+                 style="display: none;">
+        </label>
         <p id="file-error" class="text-red-600 text-sm mt-1 hidden" style="color: var(--pink); font-weight: 800;"></p>
         <!-- Animated preview -->
         <div id="preview-wrap" class="hidden mt-3" style="margin-top: 12px;">
@@ -26,8 +30,8 @@
                 style="background: #7c3aed; color: white; padding: 4px 8px; font-weight: 900; text-transform: uppercase; font-size: 11px;">Animated GIF</span>
           
           <!-- Masking Tools -->
-          <div class="flex gap-2 hidden" id="mask-buttons" style="margin-top: 12px; width: 100%;">
-            <button type="button" id="auto-mask-btn" class="button button-yellow" style="flex: 1;">
+          <div class="flex flex-col sm:flex-row gap-2 hidden" id="mask-buttons" style="margin-top: 12px; width: 100%;">
+            <button type="button" id="auto-mask-btn" class="button button-yellow" style="flex: 1; min-height: 48px;">
               <span id="auto-mask-text">✨ Auto-Mask</span>
               <span id="auto-mask-loading" class="hidden">
                 <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="vertical-align: middle; animation: spin 1s linear infinite;">
@@ -37,7 +41,7 @@
                 <span id="auto-mask-progress">0%</span>
               </span>
             </button>
-            <button type="button" id="manual-mask-btn" class="button button-teal" style="flex: 1;">
+            <button type="button" id="manual-mask-btn" class="button button-teal" style="flex: 1; min-height: 48px;">
               🖌️ Manual Editor
             </button>
           </div>
@@ -49,8 +53,8 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <p class="text-xs text-gray-400" style="font-size: 12px; text-transform: uppercase; font-weight: bold;">Manual Editor</p>
             <div style="display: flex; gap: 4px;">
-              <button type="button" id="tool-erase" class="button button-pink" style="padding: 4px 8px; font-size: 12px;">Eraser</button>
-              <button type="button" id="tool-restore" class="button" style="padding: 4px 8px; font-size: 12px; background: #ddd; color: #333; border: 2px solid var(--ink);">Restore</button>
+              <button type="button" id="tool-erase" class="button button-pink" style="padding: 8px 12px; font-size: 14px; min-height: 40px;">Eraser</button>
+              <button type="button" id="tool-restore" class="button" style="padding: 8px 12px; font-size: 14px; background: #ddd; color: #333; border: 2px solid var(--ink); min-height: 40px;">Restore</button>
             </div>
           </div>
           <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold;">
@@ -61,12 +65,12 @@
           <div id="canvas-wrapper" style="position: relative; overflow: hidden; border: 2px solid var(--ink); border-radius: 4px; background: repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%) 50% / 20px 20px; max-height: 400px; display: flex; justify-content: center;">
             <canvas id="mask-canvas" style="display: block; max-width: 100%; max-height: 400px; object-fit: contain; cursor: crosshair; touch-action: none;"></canvas>
           </div>
-          <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button type="button" id="apply-mask-btn" class="button button-teal" style="flex: 1; padding: 6px;">Apply Mask</button>
-            <button type="button" id="cancel-mask-btn" class="button button-yellow" style="flex: 1; padding: 6px;">Cancel</button>
+          <div class="flex flex-col sm:flex-row gap-2" style="margin-top: 12px;">
+            <button type="button" id="apply-mask-btn" class="button button-teal" style="flex: 1; min-height: 48px; padding: 12px;">Apply Mask</button>
+            <button type="button" id="cancel-mask-btn" class="button button-yellow" style="flex: 1; min-height: 48px; padding: 12px;">Cancel</button>
           </div>
         </div>
-      </label>
+      </div>
 
       <label>
         Title
@@ -118,6 +122,38 @@
 
     const submitBtn = document.getElementById('submit-btn');
 
+    const dropZone = document.getElementById('drop-zone');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.style.background = '#ffeb3b';
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.style.background = 'var(--paper)';
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files && files.length > 0) {
+        fileInput.files = files;
+        fileInput.dispatchEvent(new Event('change'));
+      }
+    });
+
     let currentUrl = null;
     let isProcessing = false;
 
@@ -150,7 +186,7 @@
       if (file.size > limit) {
         errorEl.textContent = isGif
           ? 'GIF must be 15 MB or smaller.'
-          : 'PNG/WebP must be 5 MB or smaller.';
+          : 'Images must be 5 MB or smaller.';
         errorEl.classList.remove('hidden');
         return;
       }
@@ -400,7 +436,7 @@
         e.preventDefault();
         errorEl.textContent = isGif
           ? 'GIF must be 15 MB or smaller.'
-          : 'PNG/WebP must be 5 MB or smaller.';
+          : 'Images must be 5 MB or smaller.';
         errorEl.classList.remove('hidden');
       }
     });

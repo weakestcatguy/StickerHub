@@ -89,6 +89,9 @@ def verify_image_upload(uploaded_file: FileStorage, expected_mimetype: str) -> s
     if expected_mimetype == "image/webp":
         if not (header[:4] == b"RIFF" and header[8:12] == b"WEBP"):
             return "File content does not match WebP format."
+    if expected_mimetype in ("image/jpeg", "image/jpg", "image/pjpeg"):
+        if not header.startswith(b"\xff\xd8"):
+            return "File content does not match JPEG format."
 
     uploaded_file.seek(0)
     try:
